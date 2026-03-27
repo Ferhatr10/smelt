@@ -23097,6 +23097,9 @@ async function run() {
     const sdkDir = path6.join(rootDir, "daml");
     info(`Adding ${sdkDir} to PATH`);
     addPath(sdkDir);
+    info(`Installing and using Daml SDK version ${sdkVersion}...`);
+    await exec("daml", ["install", sdkVersion]);
+    await exec("daml", ["use", sdkVersion]);
     info(`Daml SDK version ${sdkVersion} has been set up successfully.`);
   } catch (error2) {
     if (error2 instanceof Error) {

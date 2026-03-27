@@ -1,5 +1,6 @@
 import * as core from '@actions/core';
 import * as tc from '@actions/tool-cache';
+import * as exec from '@actions/exec';
 import * as os from 'os';
 import * as path from 'path';
 
@@ -41,6 +42,11 @@ async function run(): Promise<void> {
     // 3. Add SDK to PATH
     core.info(`Adding ${sdkDir} to PATH`);
     core.addPath(sdkDir);
+
+    // 4. Install and use the specific SDK version
+    core.info(`Installing and using Daml SDK version ${sdkVersion}...`);
+    await exec.exec('daml', ['install', sdkVersion]);
+    await exec.exec('daml', ['use', sdkVersion]);
     
     core.info(`Daml SDK version ${sdkVersion} has been set up successfully.`);
 
