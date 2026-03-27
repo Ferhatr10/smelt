@@ -18,7 +18,11 @@ jobs:
         with:
           sdk-version: '2.7.0'
 
-      - name: Verify Daml Installation
+      - name: Verify Daml Installation & Debug
+        if: always()
         run: |
+          echo "--- Listing files in temp directory to debug PATH ---"
+          ls -R ${{ runner.temp }}
+          echo "--- Attempting to run daml ---"
           daml --version
           daml --version | grep '2.7.0'
