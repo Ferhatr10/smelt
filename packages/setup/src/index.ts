@@ -3,12 +3,13 @@ import * as tc from '@actions/tool-cache';
 import * as exec from '@actions/exec';
 import * as os from 'os';
 import * as path from 'path';
+import * as fs from 'fs';
 
 async function run(): Promise<void> {
   try {
     const sdkVersion = core.getInput('sdk-version', { required: true });
 
-    // 1. Determine download URL based on OS
+    // 1. Determine download URL
     const platform = os.platform();
     const arch = os.arch();
     let downloadUrl: string;
@@ -25,29 +26,34 @@ async function run(): Promise<void> {
 
     core.info(`Downloading Daml SDK from: ${downloadUrl}`);
 
-    // 2. Download and extract SDK
-    const tempPath = process.env['RUNNER_TEMP'] || os.homedir();
+    // 2. Download and extract to a temporary directory
     const sdkPath = await tc.downloadTool(downloadUrl);
-    let extractedPath: string;
+    const tempExtractDir = await tc.extractTar(sdkPath); // Extracts to a unique temp dir
 
-    if (downloadUrl.endsWith('.zip')) {
-      extractedPath = await tc.extractZip(sdkPath, tempPath);
-    } else {
-      extractedPath = await tc.extractTar(sdkPath, tempPath);
+    // 3. Move to the final destination: $HOME/.daml
+    const damlHome = path.join(os.homedir(), '.daml');
+    const sourceDir = path.join(tempExtractDir, `sdk-${sdkVersion}`);
+    
+    core.info(`Moving SDK from ${sourceDir} to ${damlHome}`);
+    if (!fs.existsSync(damlHome)) {
+        fs.mkdirSync(damlHome, { recursive: true });
     }
+    // We need to move the contents of sourceDir into .daml
+    for (const file of fs.readdirSync(sourceDir)) {
+      fs.renameSync(path.join(sourceDir, file), path.join(damlHome, file));
+    }
+    fs.rmdirSync(sourceDir);
+    fs.rmdirSync(tempExtractDir);
 
-    const rootDir = path.join(extractedPath, `sdk-${sdkVersion}`);
-    const sdkDir = path.join(rootDir, 'daml');
-    
-    // 3. Add SDK to PATH
-    core.info(`Adding ${sdkDir} to PATH`);
-    core.addPath(sdkDir);
+    // 4. Add the binary to the PATH
+    const binPath = path.join(damlHome, 'bin');
+    core.info(`Adding ${binPath} to PATH`);
+    core.addPath(binPath);
 
-    // 4. Install and use the specific SDK version
-    core.info(`Installing and using Daml SDK version ${sdkVersion}...`);
-    await exec.exec('daml', ['install', sdkVersion]);
-    await exec.exec('daml', ['use', sdkVersion]);
-    
+    // 5. Verify the installation
+    core.info('Verifying Daml installation...');
+    await exec.exec('daml', ['version']);
+
     core.info(`Daml SDK version ${sdkVersion} has been set up successfully.`);
 
   } catch (error) {

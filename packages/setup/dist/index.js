@@ -22976,77 +22976,6 @@ function extractTar(file_1, dest_1) {
     return dest;
   });
 }
-function extractZip(file, dest) {
-  return __awaiter9(this, void 0, void 0, function* () {
-    if (!file) {
-      throw new Error("parameter 'file' is required");
-    }
-    dest = yield _createExtractFolder(dest);
-    if (IS_WINDOWS3) {
-      yield extractZipWin(file, dest);
-    } else {
-      yield extractZipNix(file, dest);
-    }
-    return dest;
-  });
-}
-function extractZipWin(file, dest) {
-  return __awaiter9(this, void 0, void 0, function* () {
-    const escapedFile = file.replace(/'/g, "''").replace(/"|\n|\r/g, "");
-    const escapedDest = dest.replace(/'/g, "''").replace(/"|\n|\r/g, "");
-    const pwshPath = yield which("pwsh", false);
-    if (pwshPath) {
-      const pwshCommand = [
-        `$ErrorActionPreference = 'Stop' ;`,
-        `try { Add-Type -AssemblyName System.IO.Compression.ZipFile } catch { } ;`,
-        `try { [System.IO.Compression.ZipFile]::ExtractToDirectory('${escapedFile}', '${escapedDest}', $true) }`,
-        `catch { if (($_.Exception.GetType().FullName -eq 'System.Management.Automation.MethodException') -or ($_.Exception.GetType().FullName -eq 'System.Management.Automation.RuntimeException') ){ Expand-Archive -LiteralPath '${escapedFile}' -DestinationPath '${escapedDest}' -Force } else { throw $_ } } ;`
-      ].join(" ");
-      const args = [
-        "-NoLogo",
-        "-NoProfile",
-        "-NonInteractive",
-        "-ExecutionPolicy",
-        "Unrestricted",
-        "-Command",
-        pwshCommand
-      ];
-      debug(`Using pwsh at path: ${pwshPath}`);
-      yield exec(`"${pwshPath}"`, args);
-    } else {
-      const powershellCommand = [
-        `$ErrorActionPreference = 'Stop' ;`,
-        `try { Add-Type -AssemblyName System.IO.Compression.FileSystem } catch { } ;`,
-        `if ((Get-Command -Name Expand-Archive -Module Microsoft.PowerShell.Archive -ErrorAction Ignore)) { Expand-Archive -LiteralPath '${escapedFile}' -DestinationPath '${escapedDest}' -Force }`,
-        `else {[System.IO.Compression.ZipFile]::ExtractToDirectory('${escapedFile}', '${escapedDest}', $true) }`
-      ].join(" ");
-      const args = [
-        "-NoLogo",
-        "-Sta",
-        "-NoProfile",
-        "-NonInteractive",
-        "-ExecutionPolicy",
-        "Unrestricted",
-        "-Command",
-        powershellCommand
-      ];
-      const powershellPath = yield which("powershell", true);
-      debug(`Using powershell at path: ${powershellPath}`);
-      yield exec(`"${powershellPath}"`, args);
-    }
-  });
-}
-function extractZipNix(file, dest) {
-  return __awaiter9(this, void 0, void 0, function* () {
-    const unzipPath = yield which("unzip", true);
-    const args = [file];
-    if (!isDebug()) {
-      args.unshift("-q");
-    }
-    args.unshift("-o");
-    yield exec(`"${unzipPath}"`, args, { cwd: dest });
-  });
-}
 function _createExtractFolder(dest) {
   return __awaiter9(this, void 0, void 0, function* () {
     if (!dest) {
@@ -23069,6 +22998,7 @@ function _getGlobal(key, defaultValue) {
 // src/index.ts
 var os6 = __toESM(require("os"));
 var path6 = __toESM(require("path"));
+var fs4 = __toESM(require("fs"));
 async function run() {
   try {
     const sdkVersion = getInput("sdk-version", { required: true });
@@ -23085,21 +23015,24 @@ async function run() {
       throw new Error(`Unsupported platform: ${platform3} ${arch3}`);
     }
     info(`Downloading Daml SDK from: ${downloadUrl}`);
-    const tempPath = process.env["RUNNER_TEMP"] || os6.homedir();
     const sdkPath = await downloadTool(downloadUrl);
-    let extractedPath;
-    if (downloadUrl.endsWith(".zip")) {
-      extractedPath = await extractZip(sdkPath, tempPath);
-    } else {
-      extractedPath = await extractTar(sdkPath, tempPath);
+    const tempExtractDir = await extractTar(sdkPath);
+    const damlHome = path6.join(os6.homedir(), ".daml");
+    const sourceDir = path6.join(tempExtractDir, `sdk-${sdkVersion}`);
+    info(`Moving SDK from ${sourceDir} to ${damlHome}`);
+    if (!fs4.existsSync(damlHome)) {
+      fs4.mkdirSync(damlHome, { recursive: true });
     }
-    const rootDir = path6.join(extractedPath, `sdk-${sdkVersion}`);
-    const sdkDir = path6.join(rootDir, "daml");
-    info(`Adding ${sdkDir} to PATH`);
-    addPath(sdkDir);
-    info(`Installing and using Daml SDK version ${sdkVersion}...`);
-    await exec("daml", ["install", sdkVersion]);
-    await exec("daml", ["use", sdkVersion]);
+    for (const file of fs4.readdirSync(sourceDir)) {
+      fs4.renameSync(path6.join(sourceDir, file), path6.join(damlHome, file));
+    }
+    fs4.rmdirSync(sourceDir);
+    fs4.rmdirSync(tempExtractDir);
+    const binPath = path6.join(damlHome, "bin");
+    info(`Adding ${binPath} to PATH`);
+    addPath(binPath);
+    info("Verifying Daml installation...");
+    await exec("daml", ["version"]);
     info(`Daml SDK version ${sdkVersion} has been set up successfully.`);
   } catch (error2) {
     if (error2 instanceof Error) {
