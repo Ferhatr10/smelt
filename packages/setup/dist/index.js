@@ -22999,35 +22999,51 @@ function _getGlobal(key, defaultValue) {
 var os6 = __toESM(require("os"));
 var path6 = __toESM(require("path"));
 var fs4 = __toESM(require("fs"));
+function findFile(startPath, filter) {
+  const files = fs4.readdirSync(startPath);
+  for (const file of files) {
+    const filename = path6.join(startPath, file);
+    const stat2 = fs4.lstatSync(filename);
+    if (stat2.isDirectory()) {
+      const result = findFile(filename, filter);
+      if (result) {
+        return result;
+      }
+    } else if (path6.basename(filename) === filter) {
+      return filename;
+    }
+  }
+  return null;
+}
 async function run() {
   try {
     const sdkVersion = getInput("sdk-version", { required: true });
     const platform3 = os6.platform();
-    const arch3 = os6.arch();
-    let downloadUrl;
-    if (platform3 === "linux" && arch3 === "x64") {
-      downloadUrl = `https://github.com/digital-asset/daml/releases/download/v${sdkVersion}/daml-sdk-${sdkVersion}-linux.tar.gz`;
-    } else {
-      throw new Error(`Unsupported platform: ${platform3} ${arch3}`);
+    if (platform3 !== "linux") {
+      throw new Error("This action currently only supports Linux runners.");
     }
+    const downloadUrl = `https://github.com/digital-asset/daml/releases/download/v${sdkVersion}/daml-sdk-${sdkVersion}-linux.tar.gz`;
     info(`Downloading Daml SDK from: ${downloadUrl}`);
-    const sdkPath = await downloadTool(downloadUrl);
-    const tempExtractDir = await extractTar(sdkPath);
+    const sdkArchive = await downloadTool(downloadUrl);
+    const tempExtractDir = await extractTar(sdkArchive);
+    info(`Searching for 'daml' executable in ${tempExtractDir}...`);
+    const damlExeSourcePath = findFile(tempExtractDir, "daml");
+    if (!damlExeSourcePath || !fs4.existsSync(damlExeSourcePath)) {
+      error(`Failed to find 'daml' executable. Listing extracted files:`);
+      await exec("ls", ["-R", tempExtractDir]);
+      throw new Error("Could not find the 'daml' executable in the extracted SDK.");
+    }
+    info(`Found daml executable at: ${damlExeSourcePath}`);
     const homeDir = os6.homedir();
-    const damlHome = path6.join(homeDir, ".daml");
-    const binDir = path6.join(damlHome, "bin");
+    const binDir = path6.join(homeDir, ".daml", "bin");
     fs4.mkdirSync(binDir, { recursive: true });
-    const sourceDir = path6.join(tempExtractDir, `sdk-${sdkVersion}`);
-    const sourceDamlExe = path6.join(sourceDir, "daml", "daml");
     const targetDamlExe = path6.join(binDir, "daml");
-    info(`Linking ${sourceDamlExe} to ${targetDamlExe}`);
-    fs4.symlinkSync(sourceDamlExe, targetDamlExe);
+    info(`Moving ${damlExeSourcePath} to ${targetDamlExe}`);
+    fs4.renameSync(damlExeSourcePath, targetDamlExe);
     info(`Setting executable permissions for ${targetDamlExe}`);
     fs4.chmodSync(targetDamlExe, "755");
     info(`Adding ${binDir} to PATH`);
     addPath(binDir);
-    info(`Moving SDK files to ${damlHome}`);
-    fs4.renameSync(sourceDir, path6.join(damlHome, "sdk"));
     info('Verifying Daml installation by calling "daml version"...');
     await exec("daml", ["version"]);
     info(`Daml SDK version ${sdkVersion} has been set up successfully.`);
