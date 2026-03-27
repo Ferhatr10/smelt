@@ -3,7 +3,6 @@
 /packages/*/node_modules
 
 # Build outputs
-/packages/*/dist
 
 # Test outputs
 /tests/temp
