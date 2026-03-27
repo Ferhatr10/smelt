@@ -16,42 +16,46 @@ async function run(): Promise<void> {
 
     if (platform === 'linux' && arch === 'x64') {
       downloadUrl = `https://github.com/digital-asset/daml/releases/download/v${sdkVersion}/daml-sdk-${sdkVersion}-linux.tar.gz`;
-    } else if (platform === 'darwin' && arch === 'x64') {
-      downloadUrl = `https://github.com/digital-asset/daml/releases/download/v${sdkVersion}/daml-sdk-${sdkVersion}-osx.tar.gz`;
-    } else if (platform === 'win32' && arch === 'x64') {
-      downloadUrl = `https://github.com/digital-asset/daml/releases/download/v${sdkVersion}/daml-sdk-${sdkVersion}-windows.zip`;
     } else {
       throw new Error(`Unsupported platform: ${platform} ${arch}`);
     }
 
     core.info(`Downloading Daml SDK from: ${downloadUrl}`);
 
-    // 2. Download and extract to a temporary directory
+    // 2. Download and extract SDK to a temp directory
     const sdkPath = await tc.downloadTool(downloadUrl);
-    const tempExtractDir = await tc.extractTar(sdkPath); // Extracts to a unique temp dir
+    const tempExtractDir = await tc.extractTar(sdkPath);
 
-    // 3. Move to the final destination: $HOME/.daml
-    const damlHome = path.join(os.homedir(), '.daml');
+    // 3. Prepare the final destination and bin directory
+    const homeDir = os.homedir();
+    const damlHome = path.join(homeDir, '.daml');
+    const binDir = path.join(damlHome, 'bin');
+    fs.mkdirSync(binDir, { recursive: true });
+
+    // 4. Find the real 'daml' executable in the extracted folder
     const sourceDir = path.join(tempExtractDir, `sdk-${sdkVersion}`);
+    const sourceDamlExe = path.join(sourceDir, 'daml', 'daml');
+
+    // 5. Create a symlink in the standard bin directory
+    const targetDamlExe = path.join(binDir, 'daml');
+    core.info(`Linking ${sourceDamlExe} to ${targetDamlExe}`);
+    fs.symlinkSync(sourceDamlExe, targetDamlExe);
+
+    // 6. Ensure the executable has the correct permissions
+    core.info(`Setting executable permissions for ${targetDamlExe}`);
+    fs.chmodSync(targetDamlExe, '755');
     
-    core.info(`Moving SDK from ${sourceDir} to ${damlHome}`);
-    if (!fs.existsSync(damlHome)) {
-        fs.mkdirSync(damlHome, { recursive: true });
-    }
-    // We need to move the contents of sourceDir into .daml
-    for (const file of fs.readdirSync(sourceDir)) {
-      fs.renameSync(path.join(sourceDir, file), path.join(damlHome, file));
-    }
-    fs.rmdirSync(sourceDir);
-    fs.rmdirSync(tempExtractDir);
+    // 7. Add the standard bin directory to the PATH
+    core.info(`Adding ${binDir} to PATH`);
+    core.addPath(binDir);
+    
+    // 8. Move the rest of the sdk files to their home
+    core.info(`Moving SDK files to ${damlHome}`);
+    fs.renameSync(sourceDir, path.join(damlHome, 'sdk'));
 
-    // 4. Add the binary to the PATH
-    const binPath = path.join(damlHome, 'bin');
-    core.info(`Adding ${binPath} to PATH`);
-    core.addPath(binPath);
 
-    // 5. Verify the installation
-    core.info('Verifying Daml installation...');
+    // 9. Verify the installation from the PATH
+    core.info('Verifying Daml installation by calling "daml version"...');
     await exec.exec('daml', ['version']);
 
     core.info(`Daml SDK version ${sdkVersion} has been set up successfully.`);

@@ -23007,31 +23007,28 @@ async function run() {
     let downloadUrl;
     if (platform3 === "linux" && arch3 === "x64") {
       downloadUrl = `https://github.com/digital-asset/daml/releases/download/v${sdkVersion}/daml-sdk-${sdkVersion}-linux.tar.gz`;
-    } else if (platform3 === "darwin" && arch3 === "x64") {
-      downloadUrl = `https://github.com/digital-asset/daml/releases/download/v${sdkVersion}/daml-sdk-${sdkVersion}-osx.tar.gz`;
-    } else if (platform3 === "win32" && arch3 === "x64") {
-      downloadUrl = `https://github.com/digital-asset/daml/releases/download/v${sdkVersion}/daml-sdk-${sdkVersion}-windows.zip`;
     } else {
       throw new Error(`Unsupported platform: ${platform3} ${arch3}`);
     }
     info(`Downloading Daml SDK from: ${downloadUrl}`);
     const sdkPath = await downloadTool(downloadUrl);
     const tempExtractDir = await extractTar(sdkPath);
-    const damlHome = path6.join(os6.homedir(), ".daml");
+    const homeDir = os6.homedir();
+    const damlHome = path6.join(homeDir, ".daml");
+    const binDir = path6.join(damlHome, "bin");
+    fs4.mkdirSync(binDir, { recursive: true });
     const sourceDir = path6.join(tempExtractDir, `sdk-${sdkVersion}`);
-    info(`Moving SDK from ${sourceDir} to ${damlHome}`);
-    if (!fs4.existsSync(damlHome)) {
-      fs4.mkdirSync(damlHome, { recursive: true });
-    }
-    for (const file of fs4.readdirSync(sourceDir)) {
-      fs4.renameSync(path6.join(sourceDir, file), path6.join(damlHome, file));
-    }
-    fs4.rmdirSync(sourceDir);
-    fs4.rmdirSync(tempExtractDir);
-    const binPath = path6.join(damlHome, "bin");
-    info(`Adding ${binPath} to PATH`);
-    addPath(binPath);
-    info("Verifying Daml installation...");
+    const sourceDamlExe = path6.join(sourceDir, "daml", "daml");
+    const targetDamlExe = path6.join(binDir, "daml");
+    info(`Linking ${sourceDamlExe} to ${targetDamlExe}`);
+    fs4.symlinkSync(sourceDamlExe, targetDamlExe);
+    info(`Setting executable permissions for ${targetDamlExe}`);
+    fs4.chmodSync(targetDamlExe, "755");
+    info(`Adding ${binDir} to PATH`);
+    addPath(binDir);
+    info(`Moving SDK files to ${damlHome}`);
+    fs4.renameSync(sourceDir, path6.join(damlHome, "sdk"));
+    info('Verifying Daml installation by calling "daml version"...');
     await exec("daml", ["version"]);
     info(`Daml SDK version ${sdkVersion} has been set up successfully.`);
   } catch (error2) {
