@@ -1,0 +1,12 @@
+name: 'Setup Smelt'
+description: 'Download and set up the Daml SDK'
+author: 'opencode'
+
+inputs:
+  sdk-version:
+    description: 'The version of the Daml SDK to install.'
+    required: true
+
+runs:
+  using: 'node20'
+  main: 'dist/index.js'

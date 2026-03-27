@@ -1,0 +1,20 @@
+# Dependencies
+/node_modules
+/packages/*/node_modules
+
+# Build outputs
+/packages/*/dist
+
+# Test outputs
+/tests/temp
+
+# IDE files
+.vscode
+.idea
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Backups
+.git_backup

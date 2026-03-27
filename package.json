@@ -1,0 +1,20 @@
+{
+  "name": "smelt",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "test:setup": "pnpm --filter @smelt/setup build && node tests/run-setup.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.25.0",
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "tsup": "^8.5.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.2"
+  }
+}

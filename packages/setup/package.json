@@ -1,0 +1,21 @@
+{
+  "name": "@smelt/setup",
+  "version": "1.0.0",
+  "description": "Smelt setup action",
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "tsup",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@actions/core": "^3.0.0",
+    "@actions/tool-cache": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "tsup": "^8.5.1"
+  }
+}

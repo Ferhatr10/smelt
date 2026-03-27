@@ -1,0 +1,24 @@
+name: 'Test Setup Action'
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  test-setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Smelt Setup Action
+        uses: ./packages/setup
+        with:
+          sdk-version: '2.7.0'
+
+      - name: Verify Daml Installation
+        run: |
+          daml --version
+          daml --version | grep '2.7.0'
