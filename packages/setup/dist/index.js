@@ -23093,7 +23093,8 @@ async function run() {
     } else {
       extractedPath = await extractTar(sdkPath, tempPath);
     }
-    const sdkDir = path6.join(extractedPath, "daml");
+    const rootDir = path6.join(extractedPath, `sdk-${sdkVersion}`);
+    const sdkDir = path6.join(rootDir, "daml");
     info(`Adding ${sdkDir} to PATH`);
     addPath(sdkDir);
     info(`Daml SDK version ${sdkVersion} has been set up successfully.`);

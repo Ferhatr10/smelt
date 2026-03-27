@@ -35,7 +35,8 @@ async function run(): Promise<void> {
       extractedPath = await tc.extractTar(sdkPath, tempPath);
     }
 
-    const sdkDir = path.join(extractedPath, 'daml');
+    const rootDir = path.join(extractedPath, `sdk-${sdkVersion}`);
+    const sdkDir = path.join(rootDir, 'daml');
     
     // 3. Add SDK to PATH
     core.info(`Adding ${sdkDir} to PATH`);
