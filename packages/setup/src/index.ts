@@ -40,34 +40,42 @@ async function run(): Promise<void> {
     const sdkArchive = await tc.downloadTool(downloadUrl);
     const tempExtractDir = await tc.extractTar(sdkArchive);
 
-    // 3. Guaranteed Search: Find the 'daml' executable within the extracted files
-    core.info(`Searching for 'daml' executable in ${tempExtractDir}...`);
-    const damlExeSourcePath = findFile(tempExtractDir, 'daml');
+    // 3. Find the install.sh script and run it
+    const installScriptPath = findFile(tempExtractDir, 'install.sh');
 
-    if (!damlExeSourcePath || !fs.existsSync(damlExeSourcePath)) {
-        core.error(`Failed to find 'daml' executable. Listing extracted files:`);
+    if (!installScriptPath || !fs.existsSync(installScriptPath)) {
+        core.error(`Failed to find 'install.sh'. Listing extracted files:`);
         await exec.exec('ls', ['-R', tempExtractDir]);
-        throw new Error("Could not find the 'daml' executable in the extracted SDK.");
+        throw new Error("Could not find the 'install.sh' script in the extracted SDK.");
     }
-    core.info(`Found daml executable at: ${damlExeSourcePath}`);
     
-    // 4. Prepare the final destination
+    const extractedFolder = path.dirname(installScriptPath);
+
+    core.info(`Found install.sh at: ${installScriptPath}`);
+    core.info(`Setting executable permissions for ${installScriptPath}`);
+    fs.chmodSync(installScriptPath, '755');
+
+    // Make sure we have the required tool for install.sh
+    const damlExePath = path.join(extractedFolder, 'daml', 'daml');
+    if (fs.existsSync(damlExePath)) {
+        fs.chmodSync(damlExePath, '755');
+    }
+
+    core.info(`Running ${installScriptPath}`);
+    await exec.exec('bash', [installScriptPath]);
+
+    // 4. Add the standard bin directory to the PATH
     const homeDir = os.homedir();
     const binDir = path.join(homeDir, '.daml', 'bin');
-    fs.mkdirSync(binDir, { recursive: true });
-    const targetDamlExe = path.join(binDir, 'daml');
+    
+    if (!fs.existsSync(binDir)) {
+         throw new Error(`Expected Daml bin directory not found at: ${binDir}`);
+    }
 
-    // 5. Forcefully Move and Set Permissions
-    core.info(`Moving ${damlExeSourcePath} to ${targetDamlExe}`);
-    fs.renameSync(damlExeSourcePath, targetDamlExe);
-    core.info(`Setting executable permissions for ${targetDamlExe}`);
-    fs.chmodSync(targetDamlExe, '755');
-
-    // 6. Add the standard bin directory to the PATH
     core.info(`Adding ${binDir} to PATH`);
     core.addPath(binDir);
     
-    // 7. In-Action Verification
+    // 5. In-Action Verification
     core.info('Verifying Daml installation by calling "daml version"...');
     await exec.exec('daml', ['version']);
 

@@ -23026,22 +23026,27 @@ async function run() {
     info(`Downloading Daml SDK from: ${downloadUrl}`);
     const sdkArchive = await downloadTool(downloadUrl);
     const tempExtractDir = await extractTar(sdkArchive);
-    info(`Searching for 'daml' executable in ${tempExtractDir}...`);
-    const damlExeSourcePath = findFile(tempExtractDir, "daml");
-    if (!damlExeSourcePath || !fs4.existsSync(damlExeSourcePath)) {
-      error(`Failed to find 'daml' executable. Listing extracted files:`);
+    const installScriptPath = findFile(tempExtractDir, "install.sh");
+    if (!installScriptPath || !fs4.existsSync(installScriptPath)) {
+      error(`Failed to find 'install.sh'. Listing extracted files:`);
       await exec("ls", ["-R", tempExtractDir]);
-      throw new Error("Could not find the 'daml' executable in the extracted SDK.");
+      throw new Error("Could not find the 'install.sh' script in the extracted SDK.");
     }
-    info(`Found daml executable at: ${damlExeSourcePath}`);
+    const extractedFolder = path6.dirname(installScriptPath);
+    info(`Found install.sh at: ${installScriptPath}`);
+    info(`Setting executable permissions for ${installScriptPath}`);
+    fs4.chmodSync(installScriptPath, "755");
+    const damlExePath = path6.join(extractedFolder, "daml", "daml");
+    if (fs4.existsSync(damlExePath)) {
+      fs4.chmodSync(damlExePath, "755");
+    }
+    info(`Running ${installScriptPath}`);
+    await exec("bash", [installScriptPath]);
     const homeDir = os6.homedir();
     const binDir = path6.join(homeDir, ".daml", "bin");
-    fs4.mkdirSync(binDir, { recursive: true });
-    const targetDamlExe = path6.join(binDir, "daml");
-    info(`Moving ${damlExeSourcePath} to ${targetDamlExe}`);
-    fs4.renameSync(damlExeSourcePath, targetDamlExe);
-    info(`Setting executable permissions for ${targetDamlExe}`);
-    fs4.chmodSync(targetDamlExe, "755");
+    if (!fs4.existsSync(binDir)) {
+      throw new Error(`Expected Daml bin directory not found at: ${binDir}`);
+    }
     info(`Adding ${binDir} to PATH`);
     addPath(binDir);
     info('Verifying Daml installation by calling "daml version"...');
