@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "test:setup": "pnpm --filter @smelt/setup build && node tests/run-setup.js"
+    "test:setup": "pnpm --filter @smelt/setup build && node tests/run-setup.js",
+    "test:build": "pnpm --filter @smelt/build build && node tests/run-build.js"
   },
   "keywords": [],
   "author": "",

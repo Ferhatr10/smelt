@@ -1,0 +1,13 @@
+name: 'Smelt Build'
+description: 'Build a Daml project into a DAR file'
+author: 'opencode'
+
+inputs:
+  project-dir:
+    description: 'The directory containing the daml.yaml project file.'
+    required: false
+    default: '.'
+
+runs:
+  using: 'node20'
+  main: 'dist/index.js'
